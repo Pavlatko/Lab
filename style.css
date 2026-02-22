@@ -117,14 +117,13 @@ footer {
     font-size: 0.9rem;
 }
 
-/* Mobilní úprava */
 @media (max-width: 600px) {
     header h1 { font-size: 2rem; }
     .grid { gap: 1.5rem; }
 }
 
 .main-logo {
-    max-width: 200px; /* Uprav si velikost podle potřeby */
+    max-width: 250px;
     height: auto;
     margin-bottom: 1rem;
     filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.5));
