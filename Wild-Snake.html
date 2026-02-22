@@ -1,0 +1,447 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wild Snake (PavlatkoLabs)</title>
+    <style>
+        :root { --grass-base: #3d5a2d; --ui-text: #e0e0e0; }
+        body {
+            background-color: #15200d; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; min-height: 100vh;
+            margin: 0; font-family: 'Segoe UI', sans-serif; color: white;
+            overflow: hidden; touch-action: none;
+        }
+        #top-bar {
+            width: 360px; display: flex; justify-content: space-between;
+            margin-bottom: 10px; font-weight: bold; text-transform: uppercase;
+            letter-spacing: 1px; font-size: 14px; color: var(--ui-text);
+        }
+        #game-wrapper {
+            position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            border-radius: 8px; overflow: hidden; border: 6px solid #2a3d1f;
+        }
+        canvas { display: block; background-color: var(--grass-base); }
+        #menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 100; text-align: center;
+        }
+        .menu-btn {
+            background: #4a7c2c; color: white; border: none; padding: 16px 0;
+            margin: 8px; font-size: 16px; border-radius: 30px; cursor: pointer;
+            width: 240px; font-weight: bold; transition: 0.2s;
+            box-shadow: 0 4px 0 #2d4c1e; text-transform: uppercase;
+        }
+        .menu-btn:hover { background: #5d8a3b; }
+        .menu-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #2d4c1e; }
+        #btn-continue-save { background: #b38f00; box-shadow: 0 4px 0 #8a6d00; display: none; }
+        #btn-resume-pause { background: #b38f00; box-shadow: 0 4px 0 #8a6d00; display: none; }
+        
+        #controls {
+            margin-top: 20px; display: grid;
+            grid-template-areas: 
+                ". up ." 
+                "left down right"; 
+            gap: 15px;
+            justify-items: center;
+        }
+        .nav-btn {
+            width: 65px; height: 65px; background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2); border-radius: 50%;
+            color: white; font-size: 24px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .nav-btn:active { background: rgba(255,255,255,0.3); }
+
+        #footer-branding { margin-top: 15px; font-size: 10px; opacity: 0.4; letter-spacing: 3px; text-transform: uppercase; }
+        #countdown {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 80px; font-weight: bold; color: white; text-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: none; pointer-events: none; z-index: 50;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="top-bar">
+        <div>ÚLOVEK: <span id="score-val">0</span></div>
+        <div>REKORD: <span id="high-score-val">0 / 0</span></div>
+    </div>
+
+    <div id="game-wrapper">
+        <div id="countdown">3</div>
+		<div id="menu-overlay">
+			<h1 id="menu-title" style="margin-bottom: 5px; color: #4ade80;">WILD SNAKE</h1>
+			<p id="version-text" style="font-size: 1.0em; margin-top: -10px; color: #4ade80; opacity: 0.7; font-weight: bold; letter-spacing: 1px;">1.0</p>
+
+			<button id="btn-continue-save" class="menu-btn" onclick="loadGame()">POKRAČOVAT VE HŘE</button>
+			<button id="btn-resume-pause" class="menu-btn" onclick="resumeGame()">POKRAČOVAT</button>
+			<button class="menu-btn" onclick="requestStart('easy')">NORMAL</button>
+			<button class="menu-btn" onclick="requestStart('hard')">HARD</button>
+		</div>
+        <canvas id="gameCanvas" width="360" height="440"></canvas>
+    </div>
+
+    <div id="controls">
+        <button class="nav-btn" style="grid-area: up" onmousedown="handleInput('UP')" ontouchstart="handleInput('UP')">▲</button>
+        <button class="nav-btn" style="grid-area: left" onmousedown="handleInput('LEFT')" ontouchstart="handleInput('LEFT')">◀</button>
+        <button class="nav-btn" style="grid-area: down" onmousedown="handleInput('DOWN')" ontouchstart="handleInput('DOWN')">▼</button>
+        <button class="nav-btn" style="grid-area: right" onmousedown="handleInput('RIGHT')" ontouchstart="handleInput('RIGHT')">▶</button>
+    </div>
+
+    <div id="footer-branding"><strong>Pavlatko</strong>Labs</div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const box = 20;
+        
+        let snake = []; let foods = [];
+        let direction = "RIGHT"; let nextDirection = "RIGHT";
+        let score = 0; let gameRunning = false; let isPaused = false;
+        let difficulty = 'easy'; let gameSpeed = 250; // rychlost hada
+        let lastTime = 0; let moveTimer = 0;
+        let foodSpawnTimer = 0; let nextFoodDelay = 2000;
+        let lumps = []; let scenery = [];
+        let isCountingDown = false;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSfx(freq, type, duration, vol = 0.1, ramp = true) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            if (ramp) gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        const sounds = {
+            move: () => playSfx(120, 'triangle', 0.03, 0.05),
+            eat: () => {
+                playSfx(400, 'sine', 0.1, 0.2);
+                setTimeout(() => playSfx(200, 'square', 0.05, 0.1), 50);
+            },
+            spawn: () => playSfx(600, 'sine', 0.1, 0.02),
+            fail: () => {
+                const tempo = 0.25;
+                playSfx(392, 'sawtooth', tempo, 0.15);
+                setTimeout(() => playSfx(349, 'sawtooth', tempo, 0.15), tempo * 1000);
+                setTimeout(() => playSfx(311, 'sawtooth', tempo, 0.15), tempo * 2000);
+                setTimeout(() => playSfx(246, 'sawtooth', 0.8, 0.2, false), tempo * 3000);
+            },
+            tick: () => playSfx(220, 'square', 0.04, 0.05),
+            go: () => playSfx(440, 'square', 0.15, 0.05)
+        };
+
+        function generateScenery() {
+            scenery = [];
+            for(let i=0; i<25; i++) {
+                scenery.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: 4 + Math.random() * 8, type: Math.random() > 0.6 ? 'grass' : 'spot' });
+            }
+        }
+
+        function saveGame() {
+            if (!gameRunning) return;
+            const gameState = { snake, foods, direction, nextDirection, score, difficulty, lumps };
+            localStorage.setItem('pavlatkolabs_snake_save', JSON.stringify(gameState));
+        }
+
+        function checkSavedGame() {
+            const saved = localStorage.getItem('pavlatkolabs_snake_save');
+            document.getElementById('btn-continue-save').style.display = saved ? 'block' : 'none';
+        }
+
+        function loadGame() {
+            const saved = JSON.parse(localStorage.getItem('pavlatkolabs_snake_save'));
+            if (!saved) return;
+
+            const doc = document.documentElement;
+            if (doc.requestFullscreen) doc.requestFullscreen().catch(() => {});
+
+            snake = saved.snake; 
+            foods = saved.foods; 
+            direction = saved.direction;
+            nextDirection = saved.nextDirection; 
+            score = saved.score; 
+            difficulty = saved.difficulty;
+            lumps = saved.lumps || [];
+            
+            gameSpeed = 250; // Nastavení jednotné rychlosti pro oba režimy (vyšší číslo = pomalejší had)
+            
+            document.getElementById("menu-overlay").style.display = "none";
+            generateScenery(); 
+            gameRunning = true;
+            updateUI();
+            
+            // Podmínka pro odpočet v HARD režimu zůstává zachována z původní verze
+            if (difficulty === 'hard') startCountdown(); else resumeGame();
+        }
+
+        window.addEventListener('beforeunload', saveGame);
+
+        function requestStart(mode) {
+            const doc = document.documentElement;
+            if (doc.requestFullscreen) doc.requestFullscreen().catch(() => {});
+            initGame(mode);
+        }
+
+        function initGame(mode) {
+            difficulty = mode;
+			gameSpeed = 250; // Nastavení stejné a pomalejší rychlosti pro oba módy (např. 250 ms)
+			score = 0;
+            snake = [{x: 7*box, y: 10*box}, {x: 6*box, y: 10*box}, {x: 5*box, y: 10*box}];
+            direction = "RIGHT"; nextDirection = "RIGHT";
+            lumps = []; foods = []; foodSpawnTimer = 0; 
+            nextFoodDelay = 500;
+            isPaused = false;
+            generateScenery();
+            gameRunning = true;
+			updateUI();
+            document.getElementById("menu-overlay").style.display = "none";
+            if (difficulty === 'hard') startCountdown(); else { lastTime = performance.now(); moveTimer = 0; requestAnimationFrame(gameLoop); }
+        }
+
+        function startCountdown() {
+            isCountingDown = true;
+            let count = 3;
+            const el = document.getElementById("countdown");
+            el.style.display = "block";
+            el.innerText = count;
+            sounds.tick();
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) { el.innerText = count; sounds.tick(); }
+                else { 
+                    clearInterval(interval); 
+                    el.style.display = "none"; 
+                    isCountingDown = false; 
+                    sounds.go(); 
+                    lastTime = performance.now(); 
+                    moveTimer = 0;
+                    requestAnimationFrame(gameLoop); 
+                }
+            }, 1000);
+        }
+
+        function pauseGame() {
+            if (!gameRunning || isPaused) return;
+            saveGame();
+            isPaused = true;
+            document.getElementById("menu-title").innerText = "PAUZA";
+            document.getElementById("menu-overlay").style.display = "flex";
+            document.getElementById("btn-resume-pause").style.display = "block";
+            document.getElementById("btn-continue-save").style.display = "none";
+        }
+
+        function resumeGame() {
+            const doc = document.documentElement;
+            if (!document.fullscreenElement && doc.requestFullscreen) {
+                doc.requestFullscreen().catch(() => {});
+            }
+
+            isPaused = false;
+            document.getElementById("menu-overlay").style.display = "none";
+            document.getElementById("btn-resume-pause").style.display = "none";
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && gameRunning && !isPaused) pauseGame();
+        });
+
+        function spawnFood() {
+            if (foods.length >= 3) return; // maximální počet jídel
+            let valid = false; let attempts = 0;
+            while (!valid && attempts < 50) {
+                const nF = { 
+                    x: Math.floor(Math.random() * (canvas.width / box)) * box, 
+                    y: Math.floor(Math.random() * (canvas.height / box)) * box, 
+                    type: ['mouse', 'bird', 'frog'][Math.floor(Math.random()*3)] 
+                };
+                if (!snake.some(s => s.x === nF.x && s.y === nF.y) && !foods.some(f => f.x === nF.x && f.y === nF.y)) { 
+                    foods.push(nF); 
+                    valid = true; 
+                    if(gameRunning && !isCountingDown) sounds.spawn();
+                }
+                attempts++;
+            }
+            nextFoodDelay = 2000 + Math.random() * 5000;
+        }
+
+        function gameLoop(currentTime) {
+            if (!gameRunning || isPaused || isCountingDown) return;
+            
+            const dt = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            moveTimer += dt; 
+            foodSpawnTimer += dt;
+
+            // Logika spawnování jídla přes deltaTime
+            if (foods.length < 5 && foodSpawnTimer >= nextFoodDelay) {
+                spawnFood();
+                foodSpawnTimer = 0;
+            }
+
+            // Krok pohybu hada závislý na deltaTime
+            if (moveTimer >= gameSpeed) { 
+                update(); 
+                saveGame(); 
+                moveTimer %= gameSpeed; // Zachování zbytku pro plynulost
+            }
+            
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleInput(dir) {
+            const opposites = { 'UP': 'DOWN', 'DOWN': 'UP', 'LEFT': 'RIGHT', 'RIGHT': 'LEFT' };
+            if (dir !== opposites[direction]) { if (nextDirection !== dir) sounds.move(); nextDirection = dir; }
+        }
+
+        document.addEventListener("keydown", e => {
+            const keys = {"ArrowUp":"UP","ArrowDown":"DOWN","ArrowLeft":"LEFT","ArrowRight":"RIGHT"};
+            if(keys[e.key]) handleInput(keys[e.key]);
+            if(e.key.toLowerCase() === "p" || e.key === "Escape") pauseGame();
+        });
+
+        function update() {
+            direction = nextDirection;
+            let headX = snake[0].x; let headY = snake[0].y;
+            if (direction === "RIGHT") headX += box; else if (direction === "LEFT") headX -= box; else if (direction === "UP") headY -= box; else if (direction === "DOWN") headY += box;
+            if (difficulty === 'easy') {
+                if (headX < 0) headX = canvas.width - box; else if (headX >= canvas.width) headX = 0;
+                if (headY < 0) headY = canvas.height - box; else if (headY >= canvas.height) headY = 0;
+            } else if (headX < 0 || headX >= canvas.width || headY < 0 || headY >= canvas.height) return gameOver();
+            if (snake.some(seg => seg.x === headX && seg.y === headY)) return gameOver();
+            const newHead = { x: headX, y: headY };
+            snake.unshift(newHead);
+            let ate = false;
+            for(let i=0; i<foods.length; i++) {
+                if(headX === foods[i].x && headY === foods[i].y) {
+                    score++; lumps.push(1); foods.splice(i, 1); ate = true; sounds.eat(); updateUI();
+                    break;
+                }
+            }
+            if (!ate) snake.pop();
+            lumps = lumps.map(l => l + 1).filter(l => l < snake.length - 1);
+        }
+
+        function render() {
+            ctx.fillStyle = "#3d5a2d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            scenery.forEach(s => {
+                ctx.fillStyle = s.type === 'grass' ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
+                ctx.beginPath();
+                if(s.type === 'grass') { ctx.moveTo(s.x, s.y); ctx.lineTo(s.x-2, s.y-s.size); ctx.lineTo(s.x+2, s.y-s.size); } 
+                else { ctx.arc(s.x, s.y, s.size/2, 0, Math.PI*2); }
+                ctx.fill();
+            });
+            foods.forEach(f => { if(f.type === 'mouse') drawMouse(f.x, f.y); else if(f.type === 'bird') drawBird(f.x, f.y); else drawFrog(f.x, f.y); });
+            for (let i = snake.length - 1; i >= 0; i--) {
+                const seg = snake[i]; const isHead = i === 0;
+                let radius = isHead ? box/2 : box/2.3; if (lumps.includes(i)) radius *= 1.4;
+                ctx.beginPath(); ctx.fillStyle = isHead ? "#4ade80" : `rgb(34, ${Math.max(60, 160 - i*2)}, 34)`;
+                ctx.arc(seg.x + box/2, seg.y + box/2, radius, 0, Math.PI * 2); ctx.fill();
+                if (isHead) drawEyes(seg.x, seg.y, direction);
+            }
+			if (!gameRunning && !isPaused && snake.length > 0 && !isCountingDown) {
+				// Ztmavení pozadí
+				ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+				// Hlavní nápis
+				ctx.fillStyle = "#ef4444";
+				ctx.font = "bold 40px Segoe UI";
+				ctx.textAlign = "center";
+				ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 10);
+
+				// Skóre
+				ctx.fillStyle = "white";
+				ctx.font = "20px Segoe UI";
+				ctx.fillText(`KOŘIST: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
+			}
+        }
+
+        function drawMouse(x, y) {
+            ctx.save(); ctx.translate(x + box/2, y + box/2);
+            ctx.fillStyle = "#888"; ctx.beginPath(); ctx.ellipse(0, 2, 7, 4, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = "#ffafaf"; ctx.beginPath(); ctx.arc(-4, -2, 2, 0, Math.PI * 2); ctx.arc(4, -2, 2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        }
+
+        function drawBird(x, y) {
+            ctx.save(); ctx.translate(x + box/2, y + box/2);
+            ctx.fillStyle = "#5dade2"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "orange"; const bO = Math.sin(Date.now() / 150) > 0 ? 4 : 1; 
+            ctx.beginPath(); ctx.moveTo(4, -1); ctx.lineTo(10, -bO); ctx.lineTo(10, bO); ctx.lineTo(4, 1); ctx.fill();
+            ctx.strokeStyle = "white"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(-6, Math.sin(Date.now()/100)*3); ctx.stroke(); ctx.restore();
+        }
+
+        function drawFrog(x, y) {
+            ctx.save(); ctx.translate(x + box/2, y + box/2);
+            ctx.fillStyle = "#2ecc71"; ctx.beginPath(); ctx.arc(0, 2, 6, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(-3, -2, 2.5, 0, Math.PI*2); ctx.arc(3, -2, 2.5, 0, Math.PI*2); ctx.fill(); ctx.restore();
+        }
+
+        function drawEyes(x, y, dir) {
+            ctx.fillStyle = "white";
+            let eyes = (dir === "RIGHT") ? [{x:14,y:6},{x:14,y:14}] : (dir === "LEFT") ? [{x:6,y:6},{x:6,y:14}] : (dir === "UP") ? [{x:6,y:6},{x:14,y:6}] : [{x:6,y:14},{x:14,y:14}];
+            eyes.forEach(e => { ctx.beginPath(); ctx.arc(x + e.x, y + e.y, 3, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(x + e.x, y + e.y, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "white"; });
+        }
+
+		function updateUI() {
+            const scoreEl = document.getElementById("score-val");
+            const highBtn = document.getElementById("high-score-val");
+            const menu = document.getElementById("menu-overlay");
+            
+            if (!scoreEl || !highBtn) return;
+
+            scoreEl.innerText = score;
+
+            const highEasy = parseInt(localStorage.getItem('snake_wild_high_easy')) || 0;
+            const highHard = parseInt(localStorage.getItem('snake_wild_high_hard')) || 0;
+
+            if (gameRunning || (menu && menu.style.display === "none")) {
+                if (difficulty === 'easy') {
+					if (score > highEasy) localStorage.setItem('snake_wild_high_easy', score);
+					// Zobrazit buď aktuální skóre nebo uložený rekord (to, co je vyšší)
+					highBtn.innerText = Math.max(score, highEasy); 
+				} else {
+					if (score > highHard) localStorage.setItem('snake_wild_high_hard', score);
+					highBtn.innerText = Math.max(score, highHard);
+				}
+            } else {
+                highBtn.innerText = highEasy + " / " + highHard;
+            }
+            
+            checkSavedGame();
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            sounds.fail();
+            localStorage.removeItem('pavlatkolabs_snake_save');
+            
+            // Krátká pauza pro efekt, pak ukážeme menu
+            setTimeout(() => {
+                document.getElementById("btn-resume-pause").style.display = "none";
+                document.getElementById("menu-overlay").style.display = "flex";
+                
+                // Zde jsme odstranili změnu na "LOV SKONČIL"
+                // Název v menu zůstane "WILD SNAKE" tak, jak je v HTML
+                document.getElementById("menu-title").innerText = "WILD SNAKE";
+                document.getElementById("menu-title").style.color = "#4ade80"; // Vrátíme zelenou barvu
+                
+                updateUI();
+            }, 2000); 
+        }
+        updateUI();
+    </script>
+</body>
+</html>

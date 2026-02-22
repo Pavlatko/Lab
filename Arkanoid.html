@@ -1,0 +1,426 @@
+﻿<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arkanoid (PavlatkoLabs)</title>
+    <style>
+        body { 
+            margin: 0; background: #000; color: #eee; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            height: 100vh; overflow: hidden; font-family: 'Courier New', Courier, monospace; 
+        }
+        canvas { 
+            background: #000; border: 3px solid #333; max-width: 95vw; max-height: 80vh; 
+            touch-action: none; border-radius: 10px; display: none;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.2);
+        }
+        #menu {
+            text-align: center; background: rgba(20, 20, 20, 0.95); padding: 40px; 
+            border-radius: 15px; border: 2px solid #00d2ff;
+        }
+        h1 { margin-top: 0; color: #00d2ff; letter-spacing: 4px; font-size: 28px; margin-bottom: 10px; text-shadow: 0 0 10px #00d2ff; }
+        .stats-summary { margin-bottom: 25px; font-size: 16px; color: #bbb; }
+        .stats-summary b { color: #ffca28; }
+        .btn {
+            display: block; width: 240px; padding: 15px; margin: 12px auto;
+            background: transparent; color: #00d2ff; border: 2px solid #00d2ff;
+            font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.3s;
+            font-family: inherit;
+        }
+        .btn:hover { background: #00d2ff; color: #000; transform: scale(1.05); }
+        .btn-continue { border-color: #2ecc71; color: #2ecc71; display: none; }
+        .btn-continue:hover { background: #2ecc71; color: #fff; }
+        .ui { display: none; justify-content: space-between; width: 400px; max-width: 95vw; margin-bottom: 10px; font-size: 0.9rem; color: #00d2ff; }
+        .footer { font-size: 10px; color: #444; margin-top: 15px; letter-spacing: 2px; }
+        #bestVal { color: #ffca28; }
+    </style>
+</head>
+<body>
+
+    <div id="menu">
+        <h1>ARKANOID 1.06</h1>
+        <div class="stats-summary">
+            AKTUÁLNĚ: <b id="menuScore">0</b><br>
+            REKORD: <b id="menuBest">0</b>
+        </div>
+        <button id="continueBtn" class="btn btn-continue" onclick="continueGame()">POKRAČOVAT</button>
+        <button class="btn" onclick="startNewGame()">NOVÁ HRA</button>
+    </div>
+
+    <div class="ui" id="gameUI">
+        <div>LEVEL: <span id="levelVal">1</span></div>
+        <div>ŽIVOTY: <span id="livesVal">3</span></div>
+        <div>SCÓRE: <span id="scoreVal">0</span></div>
+        <div>REKORD: <span id="bestVal">0</span></div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="footer"><strong>Pavlatko</strong>Labs</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const menu = document.getElementById("menu");
+    const gameUI = document.getElementById("gameUI");
+    const continueBtn = document.getElementById("continueBtn");
+    
+    const scoreElement = document.getElementById("scoreVal");
+    const bestElement = document.getElementById("bestVal");
+    const levelElement = document.getElementById("levelVal");
+    const livesElement = document.getElementById("livesVal");
+    const menuBest = document.getElementById("menuBest");
+    const menuScore = document.getElementById("menuScore");
+
+    canvas.width = 400;
+    canvas.height = 650; 
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playSound(freq, type, duration, vol) {
+        try {
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            g.gain.setValueAtTime(vol, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    function playFailSound() {
+        playSound(300, 'sawtooth', 0.2, 0.2);
+        setTimeout(() => playSound(200, 'sawtooth', 0.2, 0.2), 150);
+        setTimeout(() => playSound(100, 'sawtooth', 0.4, 0.25), 300);
+    }
+
+    let lastTime = 0;
+    let ballBaseSpeed = 260; 
+    const paddleKeyboardSpeed = 500; 
+
+    let score = 0, lives = 3, level = 1, gameRunning = false;
+    let paddleWidth = 85;
+    const paddleHeight = 12, ballRadius = 7;
+    const paddleY = canvas.height - 140; // Fixní výška pálky
+    let paddleX, x, y, dx, dy;
+    let bricks = [];
+    let brickRowCount, brickColumnCount;
+
+    const tpOuterRadius = 40;
+    const tpInnerRadius = 17;
+    const tpY = canvas.height - 60; 
+
+    let highScore = localStorage.getItem("arkanoid_endless_best") || 0;
+    bestElement.innerText = highScore;
+    menuBest.innerText = highScore;
+    
+    checkSavedGame();
+
+    function checkSavedGame() {
+        const saved = localStorage.getItem("arkanoid_full_save");
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            menuScore.innerText = parsed.score;
+            continueBtn.style.display = "block";
+        } else {
+            menuScore.innerText = score;
+            continueBtn.style.display = "none";
+        }
+    }
+
+    function saveFullState() {
+        if(!gameRunning) return;
+        const state = {
+            score, lives, level, 
+            ball: { x, y, dx, dy, speed: ballBaseSpeed },
+            paddle: { x: paddleX, w: paddleWidth },
+            bricks, cols: brickColumnCount, rows: brickRowCount
+        };
+        localStorage.setItem("arkanoid_full_save", JSON.stringify(state)); // Brand: ukládání postupu
+    }
+
+    function initBricks(isNextLevel = true) {
+		if (!isNextLevel) return;
+		bricks = [];
+		let cols, rows, bHeight;
+		if (level === 1) { cols = 5; rows = 4; bHeight = 25; paddleWidth = 80; ballBaseSpeed = 260; }
+		else if (level === 2) { cols = 7; rows = 8; bHeight = 18; paddleWidth = 65; ballBaseSpeed = 310; }
+		else {
+			cols = 9; rows = 12; bHeight = 16; paddleWidth = 50;
+			ballBaseSpeed = 320 + (Math.min(10, level - 3) * 30);
+		}
+		const bWidth = (canvas.width - 40) / cols;
+		for(let c=0; c<cols; c++) {
+			bricks[c] = [];
+			for(let r=0; r<rows; r++) {
+				// Výpočet pozice už zde
+				let bx = (c * (bWidth)) + 20;
+				let by = (r * (bHeight)) + 60;
+				bricks[c][r] = { x: bx, y: by, status: 1, w: bWidth - 4, h: bHeight - 4 };
+			}
+		}
+		brickColumnCount = cols; brickRowCount = rows;
+	}
+
+    function startGame(doReset = true) {
+        const docEl = document.documentElement;
+        if (docEl.requestFullscreen) docEl.requestFullscreen();
+
+        gameRunning = true;
+        menu.style.display = "none";
+        canvas.style.display = "block";
+        gameUI.style.display = "flex";
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+
+        if (doReset) {
+            initBricks(true);
+            paddleX = (canvas.width - paddleWidth) / 2;
+            resetBall();
+        }
+        lastTime = performance.now();
+        requestAnimationFrame(draw);
+    }
+
+    function startNewGame() {
+        if (localStorage.getItem("arkanoid_full_save")) {
+            if (!confirm("Přepsat rozehranou hru?")) return;
+        }
+        localStorage.removeItem("arkanoid_full_save");
+        score = 0; lives = 3; level = 1;
+        updateUI();
+        startGame(true);
+    }
+
+    function continueGame() {
+        const saved = JSON.parse(localStorage.getItem("arkanoid_full_save"));
+        if (saved) {
+            score = saved.score; lives = saved.lives; level = saved.level;
+            x = saved.ball.x; y = saved.ball.y; dx = saved.ball.dx; dy = saved.ball.dy;
+            ballBaseSpeed = saved.ball.speed; paddleX = saved.paddle.x; paddleWidth = saved.paddle.w;
+            bricks = saved.bricks; brickColumnCount = saved.cols; brickRowCount = saved.rows;
+            updateUI(); startGame(false);
+        }
+    }
+
+    function resetBall() {
+        x = canvas.width / 2;
+        y = paddleY - 40; 
+        dx = (Math.random() - 0.5) * ballBaseSpeed;
+        dy = -ballBaseSpeed; 
+    }
+
+    function updateUI() {
+        scoreElement.innerText = score;
+        livesElement.innerText = lives;
+        levelElement.innerText = level;
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem("arkanoid_endless_best", highScore);
+            bestElement.innerText = highScore;
+        }
+    }
+
+    const handleInput = (clientX) => {
+        let rect = canvas.getBoundingClientRect();
+        let scaleX = canvas.width / rect.width;
+        let relX = (clientX - rect.left) * scaleX;
+        paddleX = relX - paddleWidth / 2;
+        if (paddleX < 0) paddleX = 0;
+        if (paddleX > canvas.width - paddleWidth) paddleX = canvas.width - paddleWidth;
+    };
+
+    canvas.addEventListener("touchmove", (e) => { e.preventDefault(); handleInput(e.touches[0].clientX); }, {passive: false});
+    canvas.addEventListener("mousemove", (e) => handleInput(e.clientX));
+
+    let rightPressed = false, leftPressed = false;
+    document.addEventListener("keydown", (e) => {
+        if(e.key.includes("Right")) rightPressed = true;
+        else if(e.key.includes("Left")) leftPressed = true;
+    });
+    document.addEventListener("keyup", (e) => {
+        if(e.key.includes("Right")) rightPressed = false;
+        else if(e.key.includes("Left")) leftPressed = false;
+    });
+
+    function collisionDetection() {
+        let activeBricks = 0;
+        for(let c=0; c<brickColumnCount; c++) {
+            for(let r=0; r<brickRowCount; r++) {
+                let b = bricks[c][r];
+                if(b.status === 1) {
+                    activeBricks++;
+                    if(x + ballRadius > b.x && x - ballRadius < b.x + b.w && 
+                       y + ballRadius > b.y && y - ballRadius < b.y + b.h) {
+                        dy = -dy; b.status = 0; score++; updateUI();
+                        playSound(550, 'sine', 0.1, 0.12); saveFullState();
+                        return;
+                    }
+                }
+            }
+        }
+        if(activeBricks === 0 && gameRunning) {
+            level++; lives++; updateUI(); playSound(800, 'sine', 0.5, 0.1);
+            initBricks(true); resetBall(); saveFullState();
+        }
+    }
+
+    function draw(currentTime) {
+        if(!gameRunning) return;
+        
+        // Ochrana proti lagu (max 0.1s na snímek)
+        let dt = (currentTime - lastTime) / 1000;
+        if (dt > 0.1) dt = 0.1; 
+        lastTime = currentTime;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Vykreslování cihel (použití již vypočtených hodnot)
+		for(let c=0; c<brickColumnCount; c++) {
+			for(let r=0; r<brickRowCount; r++) {
+				let b = bricks[c][r];
+				if(b.status === 1) {
+					ctx.fillStyle = `hsl(${(r * (360/brickRowCount))}, 70%, 50%)`;
+					ctx.fillRect(b.x, b.y, b.w, b.h); // Používáme b.x a b.y z initBricks
+				}
+			}
+		}
+        // 2. Pohyb pálky s ochranou proti vyjetí (Clamp)
+        if(rightPressed) {
+			paddleX = Math.min(canvas.width - paddleWidth, paddleX + paddleKeyboardSpeed * dt);
+		} else if(leftPressed) {
+			paddleX = Math.max(0, paddleX - paddleKeyboardSpeed * dt);
+		}
+
+        // Joystick vizualizace
+        const centerX = paddleX + paddleWidth / 2;
+        ctx.beginPath();
+        ctx.arc(centerX, tpY, tpOuterRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0, 210, 255, 0.3)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "rgba(0, 210, 255, 0.05)";
+        ctx.fill();
+        ctx.closePath();
+        ctx.beginPath();
+        ctx.arc(centerX, tpY, tpInnerRadius, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0, 210, 255, 0.2)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0, 210, 255, 0.6)";
+        ctx.stroke();
+        ctx.closePath();
+
+        // Pálka
+        ctx.fillStyle = "#00d2ff";
+        ctx.shadowBlur = 15; ctx.shadowColor = "#00d2ff";
+        ctx.fillRect(paddleX, paddleY, paddleWidth, paddleHeight);
+        ctx.shadowBlur = 0;
+
+        // Míček
+        ctx.beginPath(); ctx.arc(x, y, ballRadius, 0, Math.PI*2);
+        ctx.fillStyle = "#fff"; ctx.fill(); ctx.closePath();
+
+        collisionDetection();
+
+        // Pohyb míčku a detekce kolizí s Delta Time
+        let nextX = x + dx * dt;
+        let nextY = y + dy * dt;
+
+        // Odraz od stěn
+        if(nextX > canvas.width - ballRadius || nextX < ballRadius) {
+            dx = -dx; 
+            playSound(180, 'sine', 0.1, 0.3); 
+        }
+        if(nextY < ballRadius) {
+            dy = -dy; 
+            playSound(180, 'sine', 0.1, 0.3); 
+        }
+
+        if (dy > 0 && y <= paddleY && nextY >= paddleY) {
+			let intersectX = x + (dx * (paddleY - y) / dy);
+			if (intersectX > paddleX && intersectX < paddleX + paddleWidth) {
+				let hitPoint = (intersectX - (paddleX + paddleWidth/2)) / (paddleWidth/2);
+				dx = hitPoint * (ballBaseSpeed + 100); 
+				dy = -Math.abs(dy);
+				y = paddleY - ballRadius; // POSUNUTÍ NAD PÁLKU
+				playSound(350, 'triangle', 0.1, 0.15);
+			}
+		}
+        
+		// Pád pod hrací plochu
+		if(nextY > canvas.height) {
+			playFailSound(); 
+			lives--; 
+			updateUI();
+			
+			if(lives <= 0) {
+				gameRunning = false; 
+				localStorage.removeItem("arkanoid_full_save"); // Brand: ukládání postupu
+				
+				// Vykreslíme Game Over a počkáme na interakci
+				drawGameOver();
+				
+				// Restart po kliknutí nebo stisku klávesy zpět do menu
+				const restart = () => {
+					window.removeEventListener("keydown", restart);
+					canvas.removeEventListener("mousedown", restart);
+					document.location.reload();
+				};
+				setTimeout(() => { // Malá prodleva, aby hráč hned neprokliknul menu
+					window.addEventListener("keydown", restart);
+					canvas.addEventListener("mousedown", restart);
+				}, 500);
+				
+				return; // Zastaví draw smyčku
+			} else {
+				resetBall(); 
+				saveFullState();
+			}
+		}
+
+        x += dx * dt; y += dy * dt;
+        requestAnimationFrame(draw);
+    }
+
+	function drawGameOver() {
+		ctx.save();
+		// Překrytí poloprůhledným pozadím
+		ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+		ctx.fillRect(0, 0, canvas.width, canvas.height);
+		
+		// Hlavní text
+		ctx.font = "bold 40px 'Courier New'";
+		ctx.fillStyle = "#ff4444";
+		ctx.textAlign = "center";
+		ctx.shadowBlur = 15;
+		ctx.shadowColor = "#ff4444";
+		ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 20);
+		
+		// Podnadpis se skóre
+		ctx.font = "20px 'Courier New'";
+		ctx.fillStyle = "#fff";
+		ctx.shadowBlur = 0;
+		ctx.fillText("FINÁLNÍ SKÓRE: " + score, canvas.width / 2, canvas.height / 2 + 30);
+		
+		// Instrukce pro restart
+		ctx.font = "14px 'Courier New'";
+		ctx.fillStyle = "#00d2ff";
+		ctx.fillText("KLIKNI NEBO STISKNI KLÁVESU PRO MENU", canvas.width / 2, canvas.height / 2 + 80);
+		ctx.restore();
+	}
+
+    const exitHandler = () => {
+        if (!document.fullscreenElement && gameRunning) {
+            saveFullState(); gameRunning = false;
+            menu.style.display = "block"; canvas.style.display = "none"; gameUI.style.display = "none";
+            checkSavedGame();
+        }
+    };
+    document.addEventListener('fullscreenchange', exitHandler);
+</script>
+</body>
+</html>
