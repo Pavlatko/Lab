@@ -185,7 +185,16 @@
 
         window.addEventListener('beforeunload', saveGame);
 
-        function requestStart(mode) {
+		function requestStart(mode) {
+            // Kontrola, zda existuje uložená hra
+            const saved = localStorage.getItem('pavlatkolabs_snake_save');
+            
+            if (saved) {
+                // Pokud uživatel klikne na "Zrušit", funkce se ukončí a nic se nepřepíše
+                const overwrite = confirm("Overwrite current game?");
+                if (!overwrite) return;
+            }
+
             const doc = document.documentElement;
             if (doc.requestFullscreen) doc.requestFullscreen().catch(() => {});
             initGame(mode);
