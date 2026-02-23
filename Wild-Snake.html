@@ -66,8 +66,8 @@
 <body>
 
     <div id="top-bar">
-        <div>ÚLOVEK: <span id="score-val">0</span></div>
-        <div>REKORD: <span id="high-score-val">0 / 0</span></div>
+        <div>CATCHES: <span id="score-val">0</span></div>
+        <div>RECORD: <span id="high-score-val">0 / 0</span></div>
     </div>
 
     <div id="game-wrapper">
@@ -76,8 +76,8 @@
 			<h1 id="menu-title" style="margin-bottom: 5px; color: #4ade80;">WILD SNAKE</h1>
 			<p id="version-text" style="font-size: 1.0em; margin-top: -10px; color: #4ade80; opacity: 0.7; font-weight: bold; letter-spacing: 1px;">1.0</p>
 
-			<button id="btn-continue-save" class="menu-btn" onclick="loadGame()">POKRAČOVAT VE HŘE</button>
-			<button id="btn-resume-pause" class="menu-btn" onclick="resumeGame()">POKRAČOVAT</button>
+			<button id="btn-continue-save" class="menu-btn" onclick="loadGame()">CONTINUE</button>
+			<button id="btn-resume-pause" class="menu-btn" onclick="resumeGame()">CONTINUE</button>
 			<button class="menu-btn" onclick="requestStart('easy')">NORMAL</button>
 			<button class="menu-btn" onclick="requestStart('hard')">HARD</button>
 		</div>
@@ -233,7 +233,7 @@
             if (!gameRunning || isPaused) return;
             saveGame();
             isPaused = true;
-            document.getElementById("menu-title").innerText = "PAUZA";
+            document.getElementById("menu-title").innerText = "PAUSE";
             document.getElementById("menu-overlay").style.display = "flex";
             document.getElementById("btn-resume-pause").style.display = "block";
             document.getElementById("btn-continue-save").style.display = "none";
@@ -365,7 +365,7 @@
 				// Skóre
 				ctx.fillStyle = "white";
 				ctx.font = "20px Segoe UI";
-				ctx.fillText(`KOŘIST: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
+				ctx.fillText(`CATCHES: ${score}`, canvas.width / 2, canvas.height / 2 + 30);
 			}
         }
 

@@ -68,25 +68,25 @@
     <div id="start-overlay">
         <div id="menu-content">
             <div style="font-size: 32px; margin-bottom: 20px; color: #f1c40f; font-weight: bold;">TETRIS 1.3</div>
-            <button id="continue-btn" class="main-btn hidden" onclick="continueGame()">POKRAČOVAT</button>
-            <button id="start-btn" class="main-btn" onclick="handleNewGameClick()">NOVÁ HRA</button>
+            <button id="continue-btn" class="main-btn hidden" onclick="continueGame()">CONTINUE</button>
+            <button id="start-btn" class="main-btn" onclick="handleNewGameClick()">NEW GAME</button>
             <p style="font-size: 12px; color: #666; margin-top: 20px;"><strong>Pavlatko</strong>Labs</p>
         </div>
         <div id="game-over-display" class="hidden" onclick="backToMenu()">
-            <div id="go-title" style="font-size: 28px; font-weight: bold; margin-bottom: 10px;">KONEC HRY</div>
-			<div id="go-score" style="font-size: 24px; margin-bottom: 5px;">Skóre: 0</div>
-            <div style="font-size: 14px; color: #aaa; animation: blink 1.5s infinite; margin-top: 20px;">Klepnutím se vrať do menu</div>
+            <div id="go-title" style="font-size: 28px; font-weight: bold; margin-bottom: 10px;">GAME OVER</div>
+			<div id="go-score" style="font-size: 24px; margin-bottom: 5px;">Score: 0</div>
+            <div style="font-size: 14px; color: #aaa; animation: blink 1.5s infinite; margin-top: 20px;">Click for menu</div>
         </div>
     </div>
 
     <div id="ui-header">
         <div class="stat-box">
-            <div id="score">Skóre: 0</div>
-            <div id="high-score" style="color: #f1c40f;">Rekord: 0</div>
+            <div id="score">Score: 0</div>
+            <div id="high-score" style="color: #f1c40f;">Record: 0</div>
         </div>
         <button class="header-pause-btn" id="pause-btn" onpointerdown="togglePause()">⏸</button>
         <div id="next-container">
-            <div style="font-size: 9px; margin-bottom: 2px; color: #666; text-align: center;">PŘÍŠTÍ</div>
+            <div style="font-size: 9px; margin-bottom: 2px; color: #666; text-align: center;">NEXT</div>
             <canvas id="next-canvas" width="60" height="45"></canvas>
         </div>
     </div>
@@ -215,7 +215,7 @@
             context.fillStyle = 'rgba(0,0,0,0.5)';
             context.fillRect(0, 0, canvas.width, canvas.height);
             context.fillStyle = '#fff'; context.font = '2px Arial'; context.textAlign = 'center';
-            context.fillText('PAUZA', 6, 10);
+            context.fillText('PAUSE', 6, 10);
         }
     }
 
@@ -275,16 +275,16 @@
             const highScore = parseInt(localStorage.getItem('tetrisHighScore')) || 0;
             const isNewRecord = player.score > highScore;
             
-            document.getElementById('go-score').innerText = `Skóre: ${player.score}`;
+            document.getElementById('go-score').innerText = `Score: ${player.score}`;
             
             if (isNewRecord) {
-                document.getElementById('go-title').innerText = "NOVÝ REKORD!";
+                document.getElementById('go-title').innerText = "NEW RECORD!";
                 document.getElementById('go-title').style.color = "#f1c40f";
                 localStorage.setItem('tetrisHighScore', player.score);
-                highScoreElement.innerText = `Rekord: ${player.score}`;
+                highScoreElement.innerText = `Record: ${player.score}`;
                 playSound(523, 'sine', 0.4);
             } else {
-                document.getElementById('go-title').innerText = "KONEC HRY";
+                document.getElementById('go-title').innerText = "GAME OVER!";
                 document.getElementById('go-title').style.color = "#e74c3c";
                 playSound(100, 'sawtooth', 0.5, 0.3);
             }
@@ -324,7 +324,7 @@
             arena.unshift(new Array(12).fill(0));
         });
         player.score += clearingRows.length * 10;
-        scoreElement.innerText = `Skóre: ${player.score}`;
+        scoreElement.innerText = `Score: ${player.score}`;
         clearingRows = [];
         saveProgress();
     }
@@ -398,10 +398,10 @@
     function startGame(isCont = false) { 
 		document.documentElement.requestFullscreen().catch(() => {}); 
 		startOverlay.classList.add('hidden'); paused = false; gameOver = false; 
-		if (!isCont) { arena.forEach(r => r.fill(0)); player.score = 0; scoreElement.innerText = "Skóre: 0"; playerReset(); }
+		if (!isCont) { arena.forEach(r => r.fill(0)); player.score = 0; scoreElement.innerText = "Score: 0"; playerReset(); }
 		update(); 
 	}
-    function handleNewGameClick() { if (localStorage.getItem('tetrisSaveState') && confirm("Zrušit rozehranou hru?")) startGame(false); else startGame(false); }
+    function handleNewGameClick() { if (localStorage.getItem('tetrisSaveState') && confirm("Overwrite current game?")) startGame(false); else startGame(false); }
 	function backToMenu() {
 		// Pokud od konce hry uplynulo méně než 1000ms, nic nedělej
 		if (Date.now() - gameOverTime < 1000) return; 
@@ -418,7 +418,7 @@
 			player = s.player; 
 			// Pokud skóre chybí v objektu player (stará verze), vezmi ho z kořene
 			if (player.score === undefined && s.score !== undefined) player.score = s.score;
-			scoreElement.innerText = `Skóre: ${player.score || 0}`; 
+			scoreElement.innerText = `Score: ${player.score || 0}`; 
 			startGame(true); 
 		} 
 	}
@@ -457,7 +457,7 @@
 
     window.onload = () => {
         const hs = parseInt(localStorage.getItem('tetrisHighScore')) || 0;
-        highScoreElement.innerText = `Rekord: ${hs}`;
+        highScoreElement.innerText = `Record: ${hs}`;
         checkSavedProgress(); draw();
     };
 </script>

@@ -41,18 +41,18 @@
     <div id="menu">
         <h1>ARKANOID 1.06</h1>
         <div class="stats-summary">
-            AKTUÁLNĚ: <b id="menuScore">0</b><br>
-            REKORD: <b id="menuBest">0</b>
+            SCORE: <b id="menuScore">0</b><br>
+            RECORD: <b id="menuBest">0</b>
         </div>
-        <button id="continueBtn" class="btn btn-continue" onclick="continueGame()">POKRAČOVAT</button>
-        <button class="btn" onclick="startNewGame()">NOVÁ HRA</button>
+        <button id="continueBtn" class="btn btn-continue" onclick="continueGame()">CONTINUE</button>
+        <button class="btn" onclick="startNewGame()">NEW GAME</button>
     </div>
 
     <div class="ui" id="gameUI">
         <div>LEVEL: <span id="levelVal">1</span></div>
-        <div>ŽIVOTY: <span id="livesVal">3</span></div>
-        <div>SCÓRE: <span id="scoreVal">0</span></div>
-        <div>REKORD: <span id="bestVal">0</span></div>
+        <div>LIVES: <span id="livesVal">3</span></div>
+        <div>SCORE: <span id="scoreVal">0</span></div>
+        <div>RECORD: <span id="bestVal">0</span></div>
     </div>
     
     <canvas id="gameCanvas"></canvas>
@@ -188,7 +188,7 @@
 
     function startNewGame() {
         if (localStorage.getItem("arkanoid_full_save")) {
-            if (!confirm("Přepsat rozehranou hru?")) return;
+            if (!confirm("Overwrite current game?")) return;
         }
         localStorage.removeItem("arkanoid_full_save");
         score = 0; lives = 3; level = 1;
@@ -404,12 +404,12 @@
 		ctx.font = "20px 'Courier New'";
 		ctx.fillStyle = "#fff";
 		ctx.shadowBlur = 0;
-		ctx.fillText("FINÁLNÍ SKÓRE: " + score, canvas.width / 2, canvas.height / 2 + 30);
+		ctx.fillText("YOUR SCORE: " + score, canvas.width / 2, canvas.height / 2 + 30);
 		
 		// Instrukce pro restart
 		ctx.font = "14px 'Courier New'";
 		ctx.fillStyle = "#00d2ff";
-		ctx.fillText("KLIKNI NEBO STISKNI KLÁVESU PRO MENU", canvas.width / 2, canvas.height / 2 + 80);
+		ctx.fillText("CLICK OR PRESS ANY KEY FOR MENU", canvas.width / 2, canvas.height / 2 + 80);
 		ctx.restore();
 	}
 

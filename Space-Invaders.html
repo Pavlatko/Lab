@@ -56,25 +56,25 @@
 <div id="game-container">
     <div id="menu">
         <h1>SPACE INVADERS<br><small style="font-size: 0.4em;">1.05</small></h1>
-        <button id="continueBtn" class="btn" onclick="continueGame()">POKRAČOVAT</button>
-        <button class="btn" onclick="startNewGame()">NOVÁ HRA</button>
-        <div style="margin-top: 20px; color: #666;">Rekord: <span id="menuHighScore">0</span></div>
+        <button id="continueBtn" class="btn" onclick="continueGame()">CONTINUE</button>
+        <button class="btn" onclick="startNewGame()">NEW GAME</button>
+        <div style="margin-top: 20px; color: #666;">Record: <span id="menuHighScore">0</span></div>
     </div>
 
     <div class="ui" id="gameUI" style="display: none;">
         <div>LEVEL: <span id="levelDisp">1</span></div>
-        <div>SKÓRE: <span id="score">0</span></div>
-        <div>ŽIVOTY: <span id="lives">3</span></div>
-        <div>REKORD: <span id="highScore">0</span></div>
+        <div>SCORE: <span id="score">0</span></div>
+        <div>LIVES: <span id="lives">3</span></div>
+        <div>RECORD: <span id="highScore">0</span></div>
     </div>
 
     <canvas id="gameCanvas" style="display: none;"></canvas>
     <div id="touch-pad"></div>
 
     <div id="overlay">
-        <h1 id="msg">KONEC HRY</h1>
+        <h1 id="msg">GAME OVER</h1>
         <p id="finalScore" style="color: #fff;"></p>
-        <button class="btn" onclick="backToMenu()">ZPĚT DO MENU</button>
+        <button class="btn" onclick="backToMenu()">BACK TO MENU</button>
     </div>
 </div>
 
@@ -185,7 +185,7 @@
     }
 
     function startNewGame() {
-        if (localStorage.getItem('pavlatko_invaders_save') && !confirm("Přepsat rozehranou hru?")) return;
+        if (localStorage.getItem('pavlatko_invaders_save') && !confirm("Overwrite current game?")) return;
         resetToNew();
         initEnemies();
         launch();
@@ -466,7 +466,7 @@
         state.gameActive = false; sfx.gameOver(); 
         localStorage.removeItem('pavlatko_invaders_save');
         overlay.style.display = 'block'; touchPad.style.display = 'none';
-        document.getElementById('finalScore').innerText = "Sestřelených emzáků: " + state.score;
+        document.getElementById('finalScore').innerText = "KILLS: " + state.score;
         if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         checkSave();
     }

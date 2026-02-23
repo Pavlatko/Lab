@@ -121,18 +121,18 @@
 <body>
 
     <div id="ui-layer">
-        <div id="score-container">Body: <span id="score-val">0</span></div>
-        <div id="high-score-container">Rekord: <span id="high-score-val">0</span></div>
+        <div id="score-container">Score: <span id="score-val">0</span></div>
+        <div id="high-score-container">Record: <span id="high-score-val">0</span></div>
     </div>
 
     <div id="game-container">
         <div id="menu-overlay">
             <h1>SNAKE 1.2.1</h1>
             <div id="menu-records">
-                Rekordy:<br>
+                Records:<br>
                 Normal: <span id="rec-easy">0</span> | Hard: <span id="rec-hard">0</span>
             </div>
-            <button id="btn-continue" class="menu-btn" onclick="continueGame()">POKRAČOVAT</button>
+            <button id="btn-continue" class="menu-btn" onclick="continueGame()">CONTINUE</button>
             <button class="menu-btn" onclick="checkNewGame('easy')">NORMAL</button>
             <button class="menu-btn" onclick="checkNewGame('hard')">HARD</button>
         </div>
@@ -236,7 +236,7 @@
 
         function checkNewGame(mode) {
             if (localStorage.getItem('snake_save_game')) {
-                if (confirm("Máš rozehranou hru. Opravdu chceš začít novou a smazat postup?")) {
+                if (confirm("Overwrite current game?")) {
                     clearSave();
                     resetGame(mode);
                 }
@@ -397,7 +397,7 @@
             clearSave();
             playSound('die');
             setTimeout(() => {
-                alert("Konec hry!\nSkóre: " + score);
+                alert("Game over!\nScore: " + score);
                 location.reload();
             }, 100);
         }

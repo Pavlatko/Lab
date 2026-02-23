@@ -38,10 +38,10 @@
     <div id="menu-screen" class="ui-screen">
 		<h1 style="font-size: 3rem; margin: 0;">GT RACE</h1>
 		<p style="margin-top: 5px; font-weight: bold;">1.08</p>
-		<button id="resume-btn" class="hidden" onclick="handleResume()">POKRAČOVAT</button>
-		<button onclick="handleStartNew()">NOVÁ HRA</button>
-		<p id="last-score-menu" style="font-size: 1.2rem; margin-top: 20px; margin-bottom: 0;">POSLEDNÍ SKÓRE: 0</p>
-		<p id="high-score-menu" style="font-size: 1.2rem; margin-top: 5px;">REKORD: 0</p>
+		<button id="resume-btn" class="hidden" onclick="handleResume()">CONTINUE</button>
+		<button onclick="handleStartNew()">NEW GAME</button>
+		<p id="last-score-menu" style="font-size: 1.2rem; margin-top: 20px; margin-bottom: 0;">LAST SCORE: 0</p>
+		<p id="high-score-menu" style="font-size: 1.2rem; margin-top: 5px;">RECORD: 0</p>
 		<div class="signature"><strong>Pavlatko</strong>Labs</div>
 	</div>
     <canvas id="gameCanvas"></canvas>
@@ -56,7 +56,7 @@
 
 	const lastScoreMenu = document.getElementById('last-score-menu');
 	let lastScore = localStorage.getItem('gt_lastScore') || 0;
-	lastScoreMenu.innerText = `POSLEDNÍ SKÓRE: ${lastScore}`;
+	lastScoreMenu.innerText = `LAST SCORE: ${lastScore}`;
 
     const TARGET_FPS = 60;
     let lastTime = 0;
@@ -90,7 +90,7 @@
 	let isTouchingUpperPart = false;
 	const pauseBtnArea = { x: 0, y: 15, w: 50, h: 40 }; // Pozice a velikost tlačítka
 
-    highScoreMenu.innerText = `REKORD: ${highScore}`;
+    highScoreMenu.innerText = `RECORD: ${highScore}`;
     checkSavedGame();
 
 	function drawGameSceneStatic() {
@@ -194,7 +194,7 @@
 
     function handleStartNew() {
         initAudio();
-        if (localStorage.getItem('ukládání_postupu') && !confirm("Přepsat rozdělanou hru?")) return;
+        if (localStorage.getItem('ukládání_postupu') && !confirm("Overwrite current game?")) return;
         isPaused = false; 
         score = 0; speed = START_SPEED; lives = 3; enemies = []; oilSlicks = []; player.lane = 1; isGameOver = false;
         player.rotation = 0; player.spinTimer = 0;
@@ -309,8 +309,8 @@
         ctx.textAlign = "center";
         ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 40);
         ctx.font = "bold 20px Courier New";
-        ctx.fillText(`SKÓRE: ${score}`, canvas.width / 2, canvas.height / 2 + 10);
-        ctx.fillText(`REKORD: ${highScore}`, canvas.width / 2, canvas.height / 2 + 40);
+        ctx.fillText(`SCORE: ${score}`, canvas.width / 2, canvas.height / 2 + 10);
+        ctx.fillText(`RECORD: ${highScore}`, canvas.width / 2, canvas.height / 2 + 40);
         ctx.font = "10px Courier New";
         ctx.fillText("PavlatkoLabs", canvas.width / 2, canvas.height - 20);
         ctx.textAlign = "left";
@@ -448,11 +448,11 @@
 				// Uložíme poslední skóre do paměti a aktualizujeme text v menu
 				lastScore = score;
 				localStorage.setItem('gt_lastScore', lastScore);
-				lastScoreMenu.innerText = `POSLEDNÍ SKÓRE: ${lastScore}`;
+				lastScoreMenu.innerText = `LAST SCORE: ${lastScore}`;
 
 				// --- TADY JE TA OPRAVA ---
 				// Aktualizujeme i zobrazení rekordu v menu pro případ, že ho hráč právě překonal
-				highScoreMenu.innerText = `REKORD: ${highScore}`;
+				highScoreMenu.innerText = `RECORD: ${highScore}`;
 				// -------------------------
 				
 				menuScreen.classList.remove('hidden');
