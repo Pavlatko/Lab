@@ -1,19 +1,20 @@
 ﻿{
   "short_name": "PavlatkoLabs",
   "name": "PavlatkoLabs: New Retro Games",
-  "icons": [
-    {
-      "src": "assets/apple-touch-icon.png",
-      "type": "image/png",
-      "sizes": "180x180"
-    },
-    {
-      "src": "assets/favicon.png",
-      "type": "image/png",
-      "sizes": "512x512"
-    }
-  ],
-  "start_url": "/index.html",
+	"icons": [
+	  {
+		"src": "assets/apple-touch-icon.png",
+		"type": "image/png",
+		"sizes": "180x180"
+	  },
+	  {
+		"src": "assets/favicon.png",
+		"type": "image/png",
+		"sizes": "512x512",
+		"purpose": "any maskable"
+	  }
+	],
+  "start_url": "/Labs/index.html",
   "background_color": "#0f172a",
   "display": "standalone",
   "scope": "/",
